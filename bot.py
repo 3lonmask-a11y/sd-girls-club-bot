@@ -70,13 +70,14 @@ def is_active(user: dict) -> bool:
 
 def main_menu_kb() -> InlineKeyboardMarkup:
     """
-    Главное меню по твоему плану:
-    Канал / Чат / Архив знаний / Моя подписка / Подарить подписку / Сезоны клуба / Связаться с куратором
+    Главное меню:
+    Канал / Чат клуба / Архив знаний / Моя подписка / Подарить подписку / Сезоны клуба / Связаться с куратором
     """
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Канал", callback_data="channel")],
-            [InlineKeyboardButton(text="💬 Чат клуба", url="https://t.me/+rH3eJ6oMO-ljYmYy")],
+            # прямой линк на чат (если надо — вынесем в конфиг)
+            [InlineKeyboardButton(text="💬 Чат клуба", url=getattr(settings, "CLUB_CHAT_LINK", "https://t.me/+rH3eJ6oMO-ljYmYy"))],
             [InlineKeyboardButton(text="Архив знаний", callback_data="archive")],
             [InlineKeyboardButton(text="Моя подписка", callback_data="access")],
             [InlineKeyboardButton(text="Подарить подписку", callback_data="gift")],
@@ -94,14 +95,59 @@ def back_kb() -> InlineKeyboardMarkup:
     )
 
 
-# ---------- КОМАНДЫ ----------
+# ---------- ТЕКСТОВЫЕ БЛОКИ ----------
+
+def text_channel() -> str:
+    return (
+        "Официальный канал SD GIRLS CLUB.\n"
+        "Анонсы, ориентиры, важные сигналы.\n\n"
+        f"{settings.CLUB_CHANNEL_LINK}"
+    )
+
+
+def text_chat() -> str:
+    return (
+        "Чат участниц SD GIRLS CLUB.\n"
+        "Тихое сообщество без базара и агрессии.\n\n"
+        f"{getattr(settings, 'CLUB_CHAT_LINK', '')}"
+    )
+
+
+def text_archive() -> str:
+    return (
+        "Архив знаний SD GIRLS CLUB.\n"
+        "Гайды, чек-листы и шпаргалки, к которым можно возвращаться.\n\n"
+        f"{settings.MATERIALS_LINK}"
+    )
+
+
+def text_seasons() -> str:
+    return (
+        "Сезоны клуба и ближайшие форматы.\n\n"
+        "1. Сезоны — длительные программы с мягкими ежедневными шагами.\n"
+        "2. Челленджи — точечная работа: деньги, дом, тело, стиль.\n"
+        "3. Интенсивы — для тех, кто хочет глубже.\n\n"
+        f"Описание и регистрация: {settings.SEASONS_LINK}"
+    )
+
+
+def text_gift() -> str:
+    link = getattr(settings, "GIFT_SUBSCRIPTION_LINK", settings.SUBSCRIPTION_LINK)
+    return (
+        "Подарить доступ в SD GIRLS CLUB.\n"
+        "Адекватный подарок: ритм, опора и порядок вместо мусора.\n\n"
+        f"Оформить подарок: {link}"
+    )
+
+
+# ---------- КОМАНДЫ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ ----------
 
 async def cmd_start(message: Message):
     full_name = message.from_user.full_name if message.from_user else ""
     text = (
         f"Привет, {full_name}.\n"
         "Я система SD GIRLS CLUB.\n"
-        "Держу тебя в курсе сезонов, материалов и доступа.\n"
+        "Помогаю держать в порядке доступ, сезоны и материалы.\n"
         "Без шума, без спама. Всё по делу.\n\n"
         "Выбери, что тебе нужно сейчас:"
     )
@@ -110,11 +156,60 @@ async def cmd_start(message: Message):
 
 async def cmd_menu(message: Message):
     await message.answer(
-        "Меню SD GIRLS CLUB.\n"
-        "Отсюда — ко всем рабочим разделам.",
+        "Меню SD GIRLS CLUB.\nОтсюда — ко всем рабочим разделам.",
         reply_markup=main_menu_kb()
     )
 
+
+async def cmd_seasons(message: Message):
+    await message.answer(text_seasons(), reply_markup=back_kb())
+
+
+async def cmd_materials(message: Message):
+    await message.answer(text_archive(), reply_markup=back_kb())
+
+
+async def cmd_access(message: Message):
+    user = get_user(message.from_user.id)
+    end = user.get("subscription_end")
+
+    if is_active(user):
+        text = (
+            f"Твой доступ к SD GIRLS CLUB активен до {end}.\n"
+            "Можно спокойно продолжать в своём ритме."
+        )
+    elif end:
+        text = (
+            f"Твой доступ был до {end}, сейчас он завершён.\n\n"
+            "Если формат тебе подходит — можно вернуться в любой момент:\n"
+            f"{settings.SUBSCRIPTION_LINK}"
+        )
+    else:
+        text = (
+            "Сейчас у тебя нет активного доступа.\n\n"
+            "Если ты уже оплачивала — напиши куратору через меню.\n"
+            "Если хочешь присоединиться:\n"
+            f"{settings.SUBSCRIPTION_LINK}"
+        )
+
+    await message.answer(text, reply_markup=back_kb())
+
+
+async def cmd_gift(message: Message):
+    await message.answer(text_gift(), reply_markup=back_kb())
+
+
+async def cmd_support(message: Message):
+    # включаем режим поддержки
+    set_user(message.from_user.id, {"wait_support": True})
+    text = (
+        "Опиши одним сообщением, в чём вопрос: доступ, оплата, материалы или другое.\n"
+        "Я передам это куратору, ответ придёт сюда."
+    )
+    await message.answer(text, reply_markup=back_kb())
+
+
+# ---------- АДМИН-КОМАНДЫ ----------
 
 async def cmd_set_sub(message: Message, command: CommandObject):
     # /set_sub YYYY-MM-DD (только админ)
@@ -165,48 +260,22 @@ async def cb_menu(callback: CallbackQuery):
 
 
 async def cb_channel(callback: CallbackQuery):
-    text = (
-        "Официальный канал SD GIRLS CLUB.\n"
-        "Анонсы, ориентиры, важные сигналы.\n\n"
-        f"{settings.CLUB_CHANNEL_LINK}"
-    )
-    await callback.message.edit_text(text, reply_markup=back_kb())
-    await callback.answer()
-
-
-async def cb_chat(callback: CallbackQuery):
-    text = (
-        "Чат участниц SD GIRLS CLUB.\n"
-        "Тихое сообщество без базара и агрессии.\n\n"
-        f"{settings.CLUB_CHAT_LINK}"
-    )
-    await callback.message.edit_text(text, reply_markup=back_kb())
+    await callback.message.edit_text(text_channel(), reply_markup=back_kb())
     await callback.answer()
 
 
 async def cb_archive(callback: CallbackQuery):
-    text = (
-        "Архив знаний SD GIRLS CLUB.\n"
-        "Гайды, чек-листы и шпаргалки, к которым можно возвращаться.\n\n"
-        f"{settings.MATERIALS_LINK}"
-    )
-    await callback.message.edit_text(text, reply_markup=back_kb())
+    await callback.message.edit_text(text_archive(), reply_markup=back_kb())
     await callback.answer()
 
 
 async def cb_seasons(callback: CallbackQuery):
-    text = (
-        "Сезоны клуба и ближайшие форматы.\n\n"
-        "1. Сезоны — длительные программы с мягкими ежедневными шага́ми.\n"
-        "2. Челленджи — точечная работа: деньги, дом, тело, стиль.\n"
-        "3. Интенсивы — для тех, кто хочет глубже.\n\n"
-        f"Описание и регистрация: {settings.SEASONS_LINK}"
-    )
-    await callback.message.edit_text(text, reply_markup=back_kb())
+    await callback.message.edit_text(text_seasons(), reply_markup=back_kb())
     await callback.answer()
 
 
 async def cb_access(callback: CallbackQuery):
+    # та же логика, что и cmd_access
     user = get_user(callback.from_user.id)
     end = user.get("subscription_end")
 
@@ -234,12 +303,7 @@ async def cb_access(callback: CallbackQuery):
 
 
 async def cb_gift(callback: CallbackQuery):
-    text = (
-        "Подарить доступ в SD GIRLS CLUB.\n"
-        "Адекватный подарок: ритм, опора и порядок вместо мусора.\n\n"
-        f"Оформить подарок: {getattr(settings, 'GIFT_SUBSCRIPTION_LINK', settings.SUBSCRIPTION_LINK)}"
-    )
-    await callback.message.edit_text(text, reply_markup=back_kb())
+    await callback.message.edit_text(text_gift(), reply_markup=back_kb())
     await callback.answer()
 
 
@@ -257,7 +321,7 @@ async def cb_support(callback: CallbackQuery):
 # ---------- СООБЩЕНИЯ КУРАТОРУ ----------
 
 async def support_router(message: Message, bot: Bot):
-    # ловим текст, если до этого нажали "Связаться с куратором"
+    # если до этого нажали "Связаться с куратором" или /support
     if not message.text or message.text.startswith("/"):
         return
 
@@ -285,16 +349,22 @@ async def main():
     )
     dp = Dispatcher()
 
-    # команды
+    # публичные команды
     dp.message.register(cmd_start, Command("start"))
     dp.message.register(cmd_menu, Command("menu"))
+    dp.message.register(cmd_seasons, Command("seasons"))
+    dp.message.register(cmd_materials, Command("materials"))
+    dp.message.register(cmd_access, Command("access"))
+    dp.message.register(cmd_gift, Command("gift"))
+    dp.message.register(cmd_support, Command("support"))
+
+    # админ-команды
     dp.message.register(cmd_set_sub, Command("set_sub"))
     dp.message.register(cmd_stats, Command("stats"))
 
     # callback-кнопки меню
     dp.callback_query.register(cb_menu, F.data == "menu")
     dp.callback_query.register(cb_channel, F.data == "channel")
-    dp.callback_query.register(cb_chat, F.data == "chat")
     dp.callback_query.register(cb_archive, F.data == "archive")
     dp.callback_query.register(cb_seasons, F.data == "seasons")
     dp.callback_query.register(cb_access, F.data == "access")
