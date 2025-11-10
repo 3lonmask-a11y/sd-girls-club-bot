@@ -69,12 +69,18 @@ def is_active(user: dict) -> bool:
 # ---------- КЛАВИАТУРЫ ----------
 
 def main_menu_kb() -> InlineKeyboardMarkup:
+    """
+    Главное меню по твоему плану:
+    Канал / Чат / Архив знаний / Моя подписка / Подарить подписку / Сезоны клуба / Связаться с куратором
+    """
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Клуб", callback_data="club")],
-            [InlineKeyboardButton(text="Сезоны и челленджи", callback_data="seasons")],
-            [InlineKeyboardButton(text="Гайды и материалы", callback_data="materials")],
-            [InlineKeyboardButton(text="Мой доступ", callback_data="access")],
+            [InlineKeyboardButton(text="Канал", callback_data="channel")],
+            [InlineKeyboardButton(text="Чат", callback_data="chat")],
+            [InlineKeyboardButton(text="Архив знаний", callback_data="archive")],
+            [InlineKeyboardButton(text="Моя подписка", callback_data="access")],
+            [InlineKeyboardButton(text="Подарить подписку", callback_data="gift")],
+            [InlineKeyboardButton(text="Сезоны клуба", callback_data="seasons")],
             [InlineKeyboardButton(text="Связаться с куратором", callback_data="support")],
         ]
     )
@@ -88,31 +94,36 @@ def back_kb() -> InlineKeyboardMarkup:
     )
 
 
-# ---------- ХЕНДЛЕРЫ КОМАНД ----------
+# ---------- КОМАНДЫ ----------
 
 async def cmd_start(message: Message):
     full_name = message.from_user.full_name if message.from_user else ""
     text = (
         f"Привет, {full_name}.\n"
         "Я система SD GIRLS CLUB.\n"
-        "Помогаю не теряться в клубе: напоминания, сезоны, гайды, продление доступа.\n"
-        "Выбери нужный раздел в меню."
+        "Держу тебя в курсе сезонов, материалов и доступа.\n"
+        "Без шума, без спама. Всё по делу.\n\n"
+        "Выбери, что тебе нужно сейчас:"
     )
     await message.answer(text, reply_markup=main_menu_kb())
 
 
 async def cmd_menu(message: Message):
-    await message.answer("Меню SD GIRLS CLUB.", reply_markup=main_menu_kb())
+    await message.answer(
+        "Меню SD GIRLS CLUB.\n"
+        "Отсюда — ко всем рабочим разделам.",
+        reply_markup=main_menu_kb()
+    )
 
 
 async def cmd_set_sub(message: Message, command: CommandObject):
-    # /set_sub YYYY-MM-DD (для админов)
+    # /set_sub YYYY-MM-DD (только админ)
     if not is_admin(message.from_user.id):
         return
 
     if not command.args:
         await message.answer(
-            "Формат: /set_sub YYYY-MM-DD (ответом на пользователя или для себя)."
+            "Формат: /set_sub YYYY-MM-DD (ответом на сообщение пользователя или для себя)."
         )
         return
 
@@ -132,6 +143,7 @@ async def cmd_set_sub(message: Message, command: CommandObject):
 
 
 async def cmd_stats(message: Message):
+    # Статистика по пользователям (только админ)
     if not is_admin(message.from_user.id):
         return
 
@@ -142,32 +154,54 @@ async def cmd_stats(message: Message):
     await message.answer(f"Всего пользователей: {total}\nАктивных подписок: {active}")
 
 
-# ---------- ХЕНДЛЕРЫ CALLBACK-КНОПОК ----------
+# ---------- CALLBACK ХЕНДЛЕРЫ МЕНЮ ----------
 
 async def cb_menu(callback: CallbackQuery):
     await callback.message.edit_text(
-        "Меню SD GIRLS CLUB.", reply_markup=main_menu_kb()
+        "Меню SD GIRLS CLUB.\nОтсюда — ко всем рабочим разделам.",
+        reply_markup=main_menu_kb()
     )
     await callback.answer()
 
 
-async def cb_club(callback: CallbackQuery):
+async def cb_channel(callback: CallbackQuery):
     text = (
-        "SD GIRLS CLUB — пространство для спокойного, собранного ритма без шума.\n"
-        "Внутри: сезоны, гайды, поддержка."
+        "Официальный канал SD GIRLS CLUB.\n"
+        "Анонсы, ориентиры, важные сигналы.\n\n"
+        f"{settings.CLUB_CHANNEL_LINK}"
+    )
+    await callback.message.edit_text(text, reply_markup=back_kb())
+    await callback.answer()
+
+
+async def cb_chat(callback: CallbackQuery):
+    text = (
+        "Чат участниц SD GIRLS CLUB.\n"
+        "Тихое сообщество без базара и агрессии.\n\n"
+        f"{settings.CLUB_CHAT_LINK}"
+    )
+    await callback.message.edit_text(text, reply_markup=back_kb())
+    await callback.answer()
+
+
+async def cb_archive(callback: CallbackQuery):
+    text = (
+        "Архив знаний SD GIRLS CLUB.\n"
+        "Гайды, чек-листы и шпаргалки, к которым можно возвращаться.\n\n"
+        f"{settings.MATERIALS_LINK}"
     )
     await callback.message.edit_text(text, reply_markup=back_kb())
     await callback.answer()
 
 
 async def cb_seasons(callback: CallbackQuery):
-    text = f"Актуальные сезоны и челленджи: {settings.SEASONS_LINK}"
-    await callback.message.edit_text(text, reply_markup=back_kb())
-    await callback.answer()
-
-
-async def cb_materials(callback: CallbackQuery):
-    text = f"Гайды и материалы клуба: {settings.MATERIALS_LINK}"
+    text = (
+        "Сезоны клуба и ближайшие форматы.\n\n"
+        "1. Сезоны — длительные программы с мягкими ежедневными шага́ми.\n"
+        "2. Челленджи — точечная работа: деньги, дом, тело, стиль.\n"
+        "3. Интенсивы — для тех, кто хочет глубже.\n\n"
+        f"Описание и регистрация: {settings.SEASONS_LINK}"
+    )
     await callback.message.edit_text(text, reply_markup=back_kb())
     await callback.answer()
 
@@ -177,18 +211,34 @@ async def cb_access(callback: CallbackQuery):
     end = user.get("subscription_end")
 
     if is_active(user):
-        text = f"Твой доступ активен до {end}."
+        text = (
+            f"Твой доступ к SD GIRLS CLUB активен до {end}.\n"
+            "Можно спокойно продолжать в своём ритме."
+        )
     elif end:
         text = (
-            f"Твой доступ был до {end} и сейчас неактивен.\n"
-            f"Продлить участие: {settings.SUBSCRIPTION_LINK}"
+            f"Твой доступ был до {end}, сейчас он завершён.\n\n"
+            "Если формат тебе подходит — можно вернуться в любой момент:\n"
+            f"{settings.SUBSCRIPTION_LINK}"
         )
     else:
         text = (
-            "Доступ не найден.\n"
-            f"Оформить или продлить участие: {settings.SUBSCRIPTION_LINK}"
+            "Сейчас у тебя нет активного доступа.\n\n"
+            "Если ты уже оплачивала — напиши куратору через меню.\n"
+            "Если хочешь присоединиться:\n"
+            f"{settings.SUBSCRIPTION_LINK}"
         )
 
+    await callback.message.edit_text(text, reply_markup=back_kb())
+    await callback.answer()
+
+
+async def cb_gift(callback: CallbackQuery):
+    text = (
+        "Подарить доступ в SD GIRLS CLUB.\n"
+        "Адекватный подарок: ритм, опора и порядок вместо мусора.\n\n"
+        f"Оформить подарок: {getattr(settings, 'GIFT_SUBSCRIPTION_LINK', settings.SUBSCRIPTION_LINK)}"
+    )
     await callback.message.edit_text(text, reply_markup=back_kb())
     await callback.answer()
 
@@ -197,17 +247,17 @@ async def cb_support(callback: CallbackQuery):
     # включаем режим "жду сообщение для куратора"
     set_user(callback.from_user.id, {"wait_support": True})
     text = (
-        "Напиши одним сообщением, что нужно или что не работает.\n"
-        "Я передам это куратору."
+        "Опиши одним сообщением, в чём вопрос: доступ, оплата, материалы или другое.\n"
+        "Я передам это куратору, ответ придёт сюда."
     )
     await callback.message.edit_text(text, reply_markup=back_kb())
     await callback.answer()
 
 
-# ---------- СООБЩЕНИЯ В ПОДДЕРЖКУ ----------
+# ---------- СООБЩЕНИЯ КУРАТОРУ ----------
 
 async def support_router(message: Message, bot: Bot):
-    # ловим текст, если человек в режиме wait_support
+    # ловим текст, если до этого нажали "Связаться с куратором"
     if not message.text or message.text.startswith("/"):
         return
 
@@ -241,15 +291,17 @@ async def main():
     dp.message.register(cmd_set_sub, Command("set_sub"))
     dp.message.register(cmd_stats, Command("stats"))
 
-    # callback-кнопки
+    # callback-кнопки меню
     dp.callback_query.register(cb_menu, F.data == "menu")
-    dp.callback_query.register(cb_club, F.data == "club")
+    dp.callback_query.register(cb_channel, F.data == "channel")
+    dp.callback_query.register(cb_chat, F.data == "chat")
+    dp.callback_query.register(cb_archive, F.data == "archive")
     dp.callback_query.register(cb_seasons, F.data == "seasons")
-    dp.callback_query.register(cb_materials, F.data == "materials")
     dp.callback_query.register(cb_access, F.data == "access")
+    dp.callback_query.register(cb_gift, F.data == "gift")
     dp.callback_query.register(cb_support, F.data == "support")
 
-    # сообщения в поддержку (после "Связаться с куратором")
+    # сообщения в поддержку
     dp.message.register(support_router, F.text)
 
     await dp.start_polling(bot)
@@ -260,4 +312,3 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
     asyncio.run(main())
-
