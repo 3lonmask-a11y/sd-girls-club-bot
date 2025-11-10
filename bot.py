@@ -12,6 +12,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
+from aiogram.client.default import DefaultBotProperties
 
 from config import settings
 
@@ -38,7 +39,8 @@ def save_data(data: dict) -> None:
 
 
 def get_user(uid: int) -> dict:
-    return load_data().get(str(uid), {})
+    data = load_data()
+    return data.get(str(uid), {})
 
 
 def set_user(uid: int, info: dict) -> None:
@@ -67,22 +69,26 @@ def is_active(user: dict) -> bool:
 # ---------- КЛАВИАТУРЫ ----------
 
 def main_menu_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Клуб", callback_data="club")],
-        [InlineKeyboardButton(text="Сезоны и челленджи", callback_data="seasons")],
-        [InlineKeyboardButton(text="Гайды и материалы", callback_data="materials")],
-        [InlineKeyboardButton(text="Мой доступ", callback_data="access")],
-        [InlineKeyboardButton(text="Связаться с куратором", callback_data="support")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Клуб", callback_data="club")],
+            [InlineKeyboardButton(text="Сезоны и челленджи", callback_data="seasons")],
+            [InlineKeyboardButton(text="Гайды и материалы", callback_data="materials")],
+            [InlineKeyboardButton(text="Мой доступ", callback_data="access")],
+            [InlineKeyboardButton(text="Связаться с куратором", callback_data="support")],
+        ]
+    )
 
 
 def back_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Назад в меню", callback_data="menu")]
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Назад в меню", callback_data="menu")]
+        ]
+    )
 
 
-# ---------- ХЕНДЛЕРЫ ----------
+# ---------- ХЕНДЛЕРЫ КОМАНД ----------
 
 async def cmd_start(message: Message):
     full_name = message.from_user.full_name if message.from_user else ""
@@ -99,8 +105,49 @@ async def cmd_menu(message: Message):
     await message.answer("Меню SD GIRLS CLUB.", reply_markup=main_menu_kb())
 
 
+async def cmd_set_sub(message: Message, command: CommandObject):
+    # /set_sub YYYY-MM-DD (для админов)
+    if not is_admin(message.from_user.id):
+        return
+
+    if not command.args:
+        await message.answer(
+            "Формат: /set_sub YYYY-MM-DD (ответом на пользователя или для себя)."
+        )
+        return
+
+    try:
+        end = date.fromisoformat(command.args.strip())
+    except ValueError:
+        await message.answer("Неверный формат. Используй YYYY-MM-DD.")
+        return
+
+    if message.reply_to_message and message.reply_to_message.from_user:
+        target = message.reply_to_message.from_user.id
+    else:
+        target = message.from_user.id
+
+    set_user(target, {"subscription_end": end.isoformat()})
+    await message.answer(f"Подписка для {target} до {end.isoformat()}")
+
+
+async def cmd_stats(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+
+    data = load_data()
+    total = len(data)
+    active = sum(1 for u in data.values() if is_active(u))
+
+    await message.answer(f"Всего пользователей: {total}\nАктивных подписок: {active}")
+
+
+# ---------- ХЕНДЛЕРЫ CALLBACK-КНОПОК ----------
+
 async def cb_menu(callback: CallbackQuery):
-    await callback.message.edit_text("Меню SD GIRLS CLUB.", reply_markup=main_menu_kb())
+    await callback.message.edit_text(
+        "Меню SD GIRLS CLUB.", reply_markup=main_menu_kb()
+    )
     await callback.answer()
 
 
@@ -146,7 +193,7 @@ async def cb_access(callback: CallbackQuery):
     await callback.answer()
 
 
-async def cb_support(callback: CallbackQuery, bot: Bot):
+async def cb_support(callback: CallbackQuery):
     # включаем режим "жду сообщение для куратора"
     set_user(callback.from_user.id, {"wait_support": True})
     text = (
@@ -156,6 +203,8 @@ async def cb_support(callback: CallbackQuery, bot: Bot):
     await callback.message.edit_text(text, reply_markup=back_kb())
     await callback.answer()
 
+
+# ---------- СООБЩЕНИЯ В ПОДДЕРЖКУ ----------
 
 async def support_router(message: Message, bot: Bot):
     # ловим текст, если человек в режиме wait_support
@@ -177,45 +226,13 @@ async def support_router(message: Message, bot: Bot):
     await message.answer("Сообщение передано куратору. Ответ придёт сюда.")
 
 
-async def cmd_set_sub(message: Message, command: CommandObject):
-    # /set_sub YYYY-MM-DD
-    if not is_admin(message.from_user.id):
-        return
-
-    if not command.args:
-        await message.answer("Формат: /set_sub YYYY-MM-DD (ответом на пользователя или для себя).")
-        return
-
-    try:
-        end = date.fromisoformat(command.args.strip())
-    except ValueError:
-        await message.answer("Неверный формат. Используй YYYY-MM-DD.")
-        return
-
-    if message.reply_to_message and message.reply_to_message.from_user:
-        target = message.reply_to_message.from_user.id
-    else:
-        target = message.from_user.id
-
-    set_user(target, {"subscription_end": end.isoformat()})
-    await message.answer(f"Подписка для {target} до {end.isoformat()}")
-
-
-async def cmd_stats(message: Message):
-    if not is_admin(message.from_user.id):
-        return
-
-    data = load_data()
-    total = len(data)
-    active = sum(1 for u in data.values() if is_active(u))
-
-    await message.answer(f"Всего пользователей: {total}\nАктивных подписок: {active}")
-
-
 # ---------- MAIN ----------
 
 async def main():
-    bot = Bot(token=settings.BOT_TOKEN, parse_mode=ParseMode.HTML)
+    bot = Bot(
+        token=settings.BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     dp = Dispatcher()
 
     # команды
@@ -224,7 +241,7 @@ async def main():
     dp.message.register(cmd_set_sub, Command("set_sub"))
     dp.message.register(cmd_stats, Command("stats"))
 
-    # callbacks
+    # callback-кнопки
     dp.callback_query.register(cb_menu, F.data == "menu")
     dp.callback_query.register(cb_club, F.data == "club")
     dp.callback_query.register(cb_seasons, F.data == "seasons")
@@ -232,7 +249,7 @@ async def main():
     dp.callback_query.register(cb_access, F.data == "access")
     dp.callback_query.register(cb_support, F.data == "support")
 
-    # поддержка
+    # сообщения в поддержку (после "Связаться с куратором")
     dp.message.register(support_router, F.text)
 
     await dp.start_polling(bot)
@@ -240,5 +257,6 @@ async def main():
 
 if __name__ == "__main__":
     import logging
+
     logging.basicConfig(level=logging.INFO)
     asyncio.run(main())
