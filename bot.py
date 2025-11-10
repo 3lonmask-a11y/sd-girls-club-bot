@@ -76,7 +76,7 @@ def main_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Канал", callback_data="channel")],
-            [InlineKeyboardButton(text="Чат", callback_data="chat")],
+            [InlineKeyboardButton(text="💬 Чат клуба", url="https://t.me/+rH3eJ6oMO-ljYmYy")],
             [InlineKeyboardButton(text="Архив знаний", callback_data="archive")],
             [InlineKeyboardButton(text="Моя подписка", callback_data="access")],
             [InlineKeyboardButton(text="Подарить подписку", callback_data="gift")],
