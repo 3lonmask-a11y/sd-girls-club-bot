@@ -4,7 +4,7 @@ from typing import Tuple
 @dataclass
 class Settings:
     # Токен бота из BotFather
-    BOT_TOKEN: str = "8344740572:AAFgGaZl0Bu-CFc05V3TKFYNIdEeKpAEs94"
+    BOT_TOKEN: str = "8344740572:AAEZMKarJrW4aXsFNOYpnK-W9IusnyxC23A"
 
     PAYMENT_DETAILS: str = """Получатель: ...
 Банк: ...
@@ -29,5 +29,6 @@ class Settings:
     DATA_FILE: str = "data/users.json"
 
 settings = Settings()
+
 
 
