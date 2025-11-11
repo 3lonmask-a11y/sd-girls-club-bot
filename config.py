@@ -6,7 +6,7 @@ from typing import Tuple
 @dataclass
 class Settings:
     # Токен бота — теперь читается из Render Environment (BOT_TOKEN)
-    BOT_TOKEN: str = os.getenv("BOT_TOKEN")
+    BOT_TOKEN: str = os.getenv("8344740572:AAEZMKarJrW4aXsFNOYpnK-W9IusnyxC23A")
 
     # Реквизиты для оплаты
     PAYMENT_DETAILS: str = """Получатель: ...
@@ -32,3 +32,4 @@ class Settings:
 
 
 settings = Settings()
+
