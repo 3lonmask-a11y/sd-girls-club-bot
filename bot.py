@@ -71,15 +71,18 @@ def is_active(user: dict) -> bool:
 def main_menu_kb() -> InlineKeyboardMarkup:
     """
     Главное меню:
-    Канал / Чат клуба / Архив знаний / Моя подписка / Подарить подписку / Сезоны клуба / Связаться с куратором
+    Канал / Чат / Архив / Моя подписка / Оплатить / Подарить / Сезоны / Поддержка
     """
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Канал", callback_data="channel")],
-            # прямой линк на чат (если надо — вынесем в конфиг)
-            [InlineKeyboardButton(text="💬 Чат клуба", url=getattr(settings, "CLUB_CHAT_LINK", "https://t.me/+rH3eJ6oMO-ljYmYy"))],
+            [InlineKeyboardButton(
+                text="Чат клуба",
+                url=getattr(settings, "CLUB_CHAT_LINK", "https://t.me/")  # подставь свой
+            )],
             [InlineKeyboardButton(text="Архив знаний", callback_data="archive")],
             [InlineKeyboardButton(text="Моя подписка", callback_data="access")],
+            [InlineKeyboardButton(text="Оплатить подписку", callback_data="pay")],
             [InlineKeyboardButton(text="Подарить подписку", callback_data="gift")],
             [InlineKeyboardButton(text="Сезоны клуба", callback_data="seasons")],
             [InlineKeyboardButton(text="Связаться с куратором", callback_data="support")],
@@ -105,18 +108,10 @@ def text_channel() -> str:
     )
 
 
-def text_chat() -> str:
-    return (
-        "Чат участниц SD GIRLS CLUB.\n"
-        "Тихое сообщество без базара и агрессии.\n\n"
-        f"{getattr(settings, 'CLUB_CHAT_LINK', '')}"
-    )
-
-
 def text_archive() -> str:
     return (
         "Архив знаний SD GIRLS CLUB.\n"
-        "Гайды, чек-листы и шпаргалки, к которым можно возвращаться.\n\n"
+        "Гайды, чек-листы и материалы, к которым можно возвращаться.\n\n"
         f"{settings.MATERIALS_LINK}"
     )
 
@@ -124,7 +119,7 @@ def text_archive() -> str:
 def text_seasons() -> str:
     return (
         "Сезоны клуба и ближайшие форматы.\n\n"
-        "1. Сезоны — длительные программы с мягкими ежедневными шагами.\n"
+        "1. Сезоны — мягкие долгие программы.\n"
         "2. Челленджи — точечная работа: деньги, дом, тело, стиль.\n"
         "3. Интенсивы — для тех, кто хочет глубже.\n\n"
         f"Описание и регистрация: {settings.SEASONS_LINK}"
@@ -132,41 +127,38 @@ def text_seasons() -> str:
 
 
 def text_gift() -> str:
-    link = getattr(settings, "GIFT_SUBSCRIPTION_LINK", settings.SUBSCRIPTION_LINK)
-    return (
+    link = getattr(settings, "GIFT_SUBSCRIPTION_LINK", "")
+    core = (
         "Подарить доступ в SD GIRLS CLUB.\n"
-        "Адекватный подарок: ритм, опора и порядок вместо мусора.\n\n"
-        f"Оформить подарок: {link}"
+        "Подарок, который усиливает, а не захламляет.\n\n"
     )
+    if link:
+        core += f"Оформить подарок: {link}"
+    else:
+        core += "Напиши куратору, если хочешь оформить подарок."
+    return core
 
 
-# ---------- КОМАНДЫ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ ----------
+# ---------- ПОЛЬЗОВАТЕЛЬСКИЕ КОМАНДЫ ----------
 
 async def cmd_start(message: Message):
     full_name = message.from_user.full_name if message.from_user else ""
     text = (
         f"Привет, {full_name}.\n"
         "Я система SD GIRLS CLUB.\n"
-        "Помогаю держать в порядке доступ, сезоны и материалы.\n"
+        "Помогаю с доступом, навигацией и связью с куратором.\n"
         "Без шума, без спама. Всё по делу.\n\n"
-        "Выбери, что тебе нужно сейчас:"
+        "Выбери, что тебе нужно:"
     )
     await message.answer(text, reply_markup=main_menu_kb())
 
 
 async def cmd_menu(message: Message):
     await message.answer(
-        "Меню SD GIRLS CLUB.\nОтсюда — ко всем рабочим разделам.",
-        reply_markup=main_menu_kb()
+        "Меню SD GIRLS CLUB.\n"
+        "Отсюда — ко всем рабочим разделам.",
+        reply_markup=main_menu_kb(),
     )
-
-
-async def cmd_seasons(message: Message):
-    await message.answer(text_seasons(), reply_markup=back_kb())
-
-
-async def cmd_materials(message: Message):
-    await message.answer(text_archive(), reply_markup=back_kb())
 
 
 async def cmd_access(message: Message):
@@ -181,26 +173,19 @@ async def cmd_access(message: Message):
     elif end:
         text = (
             f"Твой доступ был до {end}, сейчас он завершён.\n\n"
-            "Если формат тебе подходит — можно вернуться в любой момент:\n"
-            f"{settings.SUBSCRIPTION_LINK}"
+            "Если формат подходит — можно вернуться в любой момент.\n"
+            "Напиши куратору или посмотри, как оплатить в меню."
         )
     else:
         text = (
             "Сейчас у тебя нет активного доступа.\n\n"
-            "Если ты уже оплачивала — напиши куратору через меню.\n"
-            "Если хочешь присоединиться:\n"
-            f"{settings.SUBSCRIPTION_LINK}"
+            "Нажми «Оплатить подписку» в меню, чтобы получить реквизиты.\n"
+            "После оплаты пришли скрин — куратор подтвердит участие."
         )
-
     await message.answer(text, reply_markup=back_kb())
 
 
-async def cmd_gift(message: Message):
-    await message.answer(text_gift(), reply_markup=back_kb())
-
-
 async def cmd_support(message: Message):
-    # включаем режим поддержки
     set_user(message.from_user.id, {"wait_support": True})
     text = (
         "Опиши одним сообщением, в чём вопрос: доступ, оплата, материалы или другое.\n"
@@ -218,7 +203,7 @@ async def cmd_set_sub(message: Message, command: CommandObject):
 
     if not command.args:
         await message.answer(
-            "Формат: /set_sub YYYY-MM-DD (ответом на сообщение пользователя или для себя)."
+            "Формат: /set_sub YYYY-MM-DD (ответом на сообщение пользователя или с указанием для себя)."
         )
         return
 
@@ -238,23 +223,21 @@ async def cmd_set_sub(message: Message, command: CommandObject):
 
 
 async def cmd_stats(message: Message):
-    # Статистика по пользователям (только админ)
     if not is_admin(message.from_user.id):
         return
 
     data = load_data()
     total = len(data)
     active = sum(1 for u in data.values() if is_active(u))
-
     await message.answer(f"Всего пользователей: {total}\nАктивных подписок: {active}")
 
 
-# ---------- CALLBACK ХЕНДЛЕРЫ МЕНЮ ----------
+# ---------- CALLBACK ХЕНДЛЕРЫ ----------
 
 async def cb_menu(callback: CallbackQuery):
     await callback.message.edit_text(
         "Меню SD GIRLS CLUB.\nОтсюда — ко всем рабочим разделам.",
-        reply_markup=main_menu_kb()
+        reply_markup=main_menu_kb(),
     )
     await callback.answer()
 
@@ -287,17 +270,30 @@ async def cb_access(callback: CallbackQuery):
     elif end:
         text = (
             f"Твой доступ был до {end}, сейчас он завершён.\n\n"
-            "Если формат тебе подходит — можно вернуться в любой момент:\n"
-            f"{settings.SUBSCRIPTION_LINK}"
+            "Если формат подходит — можно вернуться в любой момент.\n"
+            "Напиши куратору или посмотри, как оплатить в меню."
         )
     else:
         text = (
             "Сейчас у тебя нет активного доступа.\n\n"
-            "Если ты уже оплачивала — напиши куратору через меню.\n"
-            "Если хочешь присоединиться:\n"
-            f"{settings.SUBSCRIPTION_LINK}"
+            "Нажми «Оплатить подписку», чтобы получить реквизиты.\n"
+            "После оплаты пришли скрин — куратор подтвердит участие."
         )
+    await callback.message.edit_text(text, reply_markup=back_kb())
+    await callback.answer()
 
+
+async def cb_pay(callback: CallbackQuery):
+    # включаем режим ожидания скрина
+    set_user(callback.from_user.id, {"waiting_payment": True})
+    text = (
+        "Реквизиты для оплаты участия в SD GIRLS CLUB:\n\n"
+        f"{settings.PAYMENT_DETAILS}\n\n"
+        "После оплаты:\n"
+        "1. Сделай скриншот или фото подтверждения.\n"
+        "2. Отправь его сюда одним сообщением.\n\n"
+        "Я передам данные куратору, он подтвердит доступ."
+    )
     await callback.message.edit_text(text, reply_markup=back_kb())
     await callback.answer()
 
@@ -308,7 +304,6 @@ async def cb_gift(callback: CallbackQuery):
 
 
 async def cb_support(callback: CallbackQuery):
-    # включаем режим "жду сообщение для куратора"
     set_user(callback.from_user.id, {"wait_support": True})
     text = (
         "Опиши одним сообщением, в чём вопрос: доступ, оплата, материалы или другое.\n"
@@ -318,10 +313,55 @@ async def cb_support(callback: CallbackQuery):
     await callback.answer()
 
 
-# ---------- СООБЩЕНИЯ КУРАТОРУ ----------
+# ---------- ОБРАБОТКА СКРИНОВ ОПЛАТЫ И СООБЩЕНИЙ КУРАТОРУ ----------
+
+async def payment_proof_router(message: Message, bot: Bot):
+    """
+    Ловим скрин/фото/документ, если пользователь в режиме waiting_payment.
+    """
+    user = get_user(message.from_user.id)
+    if not user.get("waiting_payment"):
+        return
+
+    # сбрасываем флаг
+    set_user(message.from_user.id, {"waiting_payment": False})
+
+    # пробрасываем админам доказательство
+    caption = (
+        f"🔔 Возможная оплата подписки.\n"
+        f"Пользователь: @{message.from_user.username or 'без_username'} (id={message.from_user.id}).\n"
+        "Проверь по реквизитам и активируй доступ через /set_sub."
+    )
+
+    # если есть фото
+    if message.photo:
+        file_id = message.photo[-1].file_id
+        await bot.send_photo(
+            chat_id=settings.ADMIN_CHAT_ID,
+            photo=file_id,
+            caption=caption,
+        )
+    # если документ (PDF/скрин)
+    elif message.document:
+        await bot.send_document(
+            chat_id=settings.ADMIN_CHAT_ID,
+            document=message.document.file_id,
+            caption=caption,
+        )
+    else:
+        # если почему-то без вложения
+        await bot.send_message(
+            chat_id=settings.ADMIN_CHAT_ID,
+            text=caption + "\n(без вложения, пользователь что-то сделал не так)",
+        )
+
+    await message.answer(
+        "Я передала чек куратору.\n"
+        "После проверки доступ будет активирован, сообщение придёт сюда."
+    )
+
 
 async def support_router(message: Message, bot: Bot):
-    # если до этого нажали "Связаться с куратором" или /support
     if not message.text or message.text.startswith("/"):
         return
 
@@ -352,24 +392,25 @@ async def main():
     # публичные команды
     dp.message.register(cmd_start, Command("start"))
     dp.message.register(cmd_menu, Command("menu"))
-    dp.message.register(cmd_seasons, Command("seasons"))
-    dp.message.register(cmd_materials, Command("materials"))
     dp.message.register(cmd_access, Command("access"))
-    dp.message.register(cmd_gift, Command("gift"))
     dp.message.register(cmd_support, Command("support"))
 
     # админ-команды
     dp.message.register(cmd_set_sub, Command("set_sub"))
     dp.message.register(cmd_stats, Command("stats"))
 
-    # callback-кнопки меню
+    # callbacks
     dp.callback_query.register(cb_menu, F.data == "menu")
     dp.callback_query.register(cb_channel, F.data == "channel")
     dp.callback_query.register(cb_archive, F.data == "archive")
     dp.callback_query.register(cb_seasons, F.data == "seasons")
     dp.callback_query.register(cb_access, F.data == "access")
+    dp.callback_query.register(cb_pay, F.data == "pay")
     dp.callback_query.register(cb_gift, F.data == "gift")
     dp.callback_query.register(cb_support, F.data == "support")
+
+    # скрины оплаты
+    dp.message.register(payment_proof_router, F.photo | F.document)
 
     # сообщения в поддержку
     dp.message.register(support_router, F.text)
@@ -382,4 +423,3 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
     asyncio.run(main())
-
