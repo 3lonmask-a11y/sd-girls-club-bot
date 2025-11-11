@@ -6,6 +6,13 @@ class Settings:
     # Токен бота из BotFather
     BOT_TOKEN: str = "8344740572:AAFgGaZl0Bu-CFc05V3TKFYNIdEeKpAEs94"
 
+    PAYMENT_DETAILS: str = """Получатель: ...
+Банк: ...
+Карта / счет: ...
+Сумма: 590 ₽
+Комментарий: SD GIRLS CLUB + твой ник в Telegram"""
+
+
     # ID админов, которые могут вызывать /set_sub /stats и т.п.
     ADMINS: Tuple[int, ...] = (931831277,)
 
@@ -22,4 +29,5 @@ class Settings:
     DATA_FILE: str = "data/users.json"
 
 settings = Settings()
+
 
