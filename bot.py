@@ -21,11 +21,10 @@ from config import settings
 DATA_PATH = Path(settings.DATA_FILE)
 DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-# если не указано в config.py — по умолчанию 30 дней
-SUB_DAYS = getattr(settings, "SUBSCRIPTION_DAYS", 30)
+SUB_DAYS = settings.SUBSCRIPTION_DAYS
+
 
 # ========= РАБОТА С ДАННЫМИ =========
-
 
 def load_data() -> dict:
     if not DATA_PATH.exists():
@@ -73,7 +72,6 @@ def is_active(user: dict) -> bool:
 
 # ========= КЛАВИАТУРЫ =========
 
-
 def main_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -120,7 +118,6 @@ async def cmd_menu(message: Message):
 
 
 async def cmd_set_sub(message: Message, command: CommandObject):
-    # ручная установка подписки (для экстренных случаев)
     if not is_admin(message.from_user.id):
         return
 
@@ -199,7 +196,7 @@ async def cb_archive(callback: CallbackQuery):
 async def cb_seasons(callback: CallbackQuery):
     text = (
         "Сезоны и форматы SD GIRLS CLUB:\n\n"
-        "1. Сезоны — длительные программы с мягкими ежедневными шагами.\n"
+        "1. Сезоны — мягкие длительные маршруты.\n"
         "2. Челленджи — точечная работа: деньги, дом, тело, стиль.\n"
         "3. Интенсивы — для тех, кто хочет глубже.\n\n"
         f"Описание и регистрация: {settings.SEASONS_LINK}"
@@ -239,7 +236,7 @@ async def cb_gift(callback: CallbackQuery):
     link = getattr(settings, "GIFT_SUBSCRIPTION_LINK", settings.SUBSCRIPTION_LINK)
     text = (
         "Подарить доступ в SD GIRLS CLUB.\n"
-        "Аккуратный подарок: ритм, опора и порядок вместо мусора.\n\n"
+        "Адекватный подарок: ритм, опора и порядок.\n\n"
         f"Оформить подарок: {link}"
     )
     await callback.message.edit_text(text, reply_markup=back_kb())
@@ -249,10 +246,6 @@ async def cb_gift(callback: CallbackQuery):
 # ========= ОПЛАТА: ПОЛУ-АВТО =========
 
 async def cb_pay(callback: CallbackQuery):
-    """
-    Показываем реквизиты и переводим юзера в режим ожидания чека.
-    Реквизиты храни в config.settings, чтобы не светить их в коде.
-    """
     uid = callback.from_user.id
 
     pay_text = (
@@ -261,12 +254,12 @@ async def cb_pay(callback: CallbackQuery):
         f"Банк: {settings.PAYEE_BANK}\n"
         f"Карта / счёт: {settings.PAYEE_ACCOUNT}\n"
         f"Сумма: {settings.SUBSCRIPTION_PRICE} ₽\n"
-        f"Комментарий к переводу: SD GIRLS CLUB + твой ник в Telegram\n\n"
+        f"Комментарий: SD GIRLS CLUB + твой ник в Telegram\n\n"
         "После оплаты:\n"
         "1. Сделай скриншот или фото подтверждения.\n"
         "2. Отправь его сюда одним сообщением.\n\n"
         "Я передам данные куратору. После подтверждения бот включит доступ "
-        f"на {SUB_DAYS} дней и пришлёт сообщение сюда."
+        f"на {SUB_DAYS} дней и сообщит здесь."
     )
 
     set_user(uid, {"wait_payment": True})
@@ -290,15 +283,10 @@ async def cb_support(callback: CallbackQuery):
 # ========= ОБРАБОТКА СООБЩЕНИЙ =========
 
 async def payment_router(message: Message, bot: Bot):
-    """
-    Если пользователь в режиме wait_payment и прислал фото/док/текст,
-    бот отправляет данные админу с кнопками ✅/❌.
-    """
     user = get_user(message.from_user.id)
     if not user.get("wait_payment"):
         return
 
-    # Только если есть фото или документ (чек)
     if not (message.photo or message.document or message.text):
         return
 
@@ -329,7 +317,6 @@ async def payment_router(message: Message, bot: Bot):
         ]
     )
 
-    # копируем сообщение с чеком админу
     if message.photo or message.document:
         await message.copy_to(
             chat_id=settings.ADMIN_CHAT_ID,
@@ -337,7 +324,6 @@ async def payment_router(message: Message, bot: Bot):
             reply_markup=kb,
         )
     else:
-        # текстом (на всякий случай)
         await bot.send_message(
             chat_id=settings.ADMIN_CHAT_ID,
             text=f"{admin_text}\n\nСообщение:\n{message.text}",
@@ -351,9 +337,6 @@ async def payment_router(message: Message, bot: Bot):
 
 
 async def support_router(message: Message, bot: Bot):
-    """
-    Сообщения в поддержку — после нажатия 'Связаться с куратором'.
-    """
     if not message.text:
         return
 
@@ -388,24 +371,19 @@ async def cb_approve(callback: CallbackQuery, bot: Bot):
     end = date.today() + timedelta(days=SUB_DAYS)
     set_user(uid, {"subscription_end": end.isoformat()})
 
-    # обновляем сообщение в админ-чате
-    new_text = callback.message.text + f"\n\n✅ Оплата подтверждена. Доступ до {end}."
-    await callback.message.edit_text(new_text)
+    await callback.answer("Доступ выдан.")
 
-    # пишем участнице
+    # уведомляем участницу
     try:
         await bot.send_message(
             uid,
             (
                 f"Твой доступ к SD GIRLS CLUB активирован до {end}.\n"
-                "Добро пожаловать. Всё остальное можно делать в своём ритме 💗"
+                "Добро пожаловать. Можно дальше в своём ритме 💗"
             ),
         )
     except Exception:
-        # если не удалось написать — молча игнорим
         pass
-
-    await callback.answer("Доступ выдан.")
 
 
 async def cb_reject(callback: CallbackQuery, bot: Bot):
@@ -419,8 +397,7 @@ async def cb_reject(callback: CallbackQuery, bot: Bot):
         await callback.answer("Ошибка данных", show_alert=True)
         return
 
-    new_text = callback.message.text + "\n\n❌ Оплата не подтверждена."
-    await callback.message.edit_text(new_text)
+    await callback.answer("Отмечено как не подтверждено.")
 
     try:
         await bot.send_message(
@@ -433,12 +410,13 @@ async def cb_reject(callback: CallbackQuery, bot: Bot):
     except Exception:
         pass
 
-    await callback.answer("Отмечено как не подтверждено.")
-
 
 # ========= MAIN =========
 
 async def main():
+    if not settings.BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN не задан. Проверь Environment в Render.")
+
     bot = Bot(
         token=settings.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
@@ -466,7 +444,7 @@ async def main():
     dp.callback_query.register(cb_approve, F.data.startswith("approve:"))
     dp.callback_query.register(cb_reject, F.data.startswith("reject:"))
 
-    # сообщения: сначала оплата, потом поддержка
+    # сообщения
     dp.message.register(payment_router)
     dp.message.register(support_router)
 
@@ -478,4 +456,5 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
     asyncio.run(main())
+
 
