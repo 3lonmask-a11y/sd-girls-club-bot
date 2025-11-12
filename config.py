@@ -1,58 +1,43 @@
+# config.py
 from dataclasses import dataclass
-import os
-from typing import Tuple
-
+from typing import Tuple, List
 
 @dataclass
 class Settings:
-    # Токен бота — только из переменных окружения Render
-    BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
+    # === ОБЯЗАТЕЛЬНО: токен бота (лучше через переменную окружения BOT_TOKEN на Render) ===
+    # Если используешь .env/Environment, можешь оставить пустым тут.
+    BOT_TOKEN: str = ""  # оставь пустым, если задаёшь в Render > Environment > BOT_TOKEN
 
-    # Админы
-    # Можно задать ADMIN_ID и ADMIN_CHAT_ID в Environment,
-    # иначе по умолчанию твой id (поставь свой реальный).
-    MAIN_ADMIN_ID: int = int(os.getenv("ADMIN_ID", "931831277"))
-    ADMINS: Tuple[int, ...] = (
-        MAIN_ADMIN_ID,
-    )
-    ADMIN_CHAT_ID: int = int(os.getenv("ADMIN_CHAT_ID", str(MAIN_ADMIN_ID)))
+    # === Админские ID (ты и люди, кто подтверждает оплаты) ===
+    ADMINS: Tuple[int, ...] = (931831277,)
+    ADMIN_CHAT_ID: int = 931831277
 
-    # Ссылки (подставь свои через Environment или оставь заглушки)
-    SUBSCRIPTION_LINK: str = os.getenv(
-        "SUBSCRIPTION_LINK",
-        "https://b2b.cbrpay.ru/BS1B0015GJF90OHV8P4B4JO82PGHN395",
-    )
-    MATERIALS_LINK: str = os.getenv(
-        "MATERIALS_LINK",
-        "https://t.me/your_materials_channel",
-    )
-    SEASONS_LINK: str = os.getenv(
-        "SEASONS_LINK",
-        "https://example.com/seasons",
-    )
+    # === Ссылки на твои площадки ===
+    CLUB_CHANNEL_LINK: str = "https://t.me/+your_channel"
+    CLUB_CHAT_LINK: str = "https://t.me/+your_chat"
+    MATERIALS_LINK: str = "https://t.me/+your_materials_or_catalog"
+    SEASONS_LINK: str = "https://sedamedia.ru/seasons"
 
-    # Линки на канал и чат клуба
-    CLUB_CHANNEL_LINK: str = os.getenv(
-        "CLUB_CHANNEL_LINK",
-        "https://t.me/your_club_channel",
-    )
-    CLUB_CHAT_LINK: str = os.getenv(
-        "CLUB_CHAT_LINK",
-        "https://t.me/your_club_chat",
-    )
+    # === Подписка ===
+    SUBSCRIPTION_DAYS: int = 30
+    SUBSCRIPTION_PRICE: int = 590  # ₽
 
-    # Параметры оплаты (вызываются в cb_pay)
-    PAYEE_NAME: str = os.getenv("PAYEE_NAME", "Получатель")
-    PAYEE_BANK: str = os.getenv("PAYEE_BANK", "Банк")
-    PAYEE_ACCOUNT: str = os.getenv("PAYEE_ACCOUNT", "XXXX XXXX XXXX XXXX")
-    SUBSCRIPTION_PRICE: int = int(os.getenv("SUBSCRIPTION_PRICE", "590"))
+    # === Реквизиты (ручная оплата) ===
+    PAYEE_NAME: str = "SD Media / Седа У."
+    PAYEE_BANK: str = "Т-Банк"
+    PAYEE_ACCOUNT: str = "5536 **** **** 1234"  # замени на реальные
 
-    # Длительность подписки по умолчанию (дней)
-    SUBSCRIPTION_DAYS: int = int(os.getenv("SUBSCRIPTION_DAYS", "30"))
+    # === Файловое хранилище ===
+    TIMEZONE: str = "Europe/Moscow"
+    DATA_FILE: str = "data/users.json"
 
-    # Техническое
-    TIMEZONE: str = os.getenv("TZ", "Europe/Moscow")
-    DATA_FILE: str = os.getenv("DATA_FILE", "data/users.json")
-
+    # === Превью «Архив знаний» (обложки гайдов) ===
+    # Можно URL или Telegram file_id (если уже грузила обложки боту и сохранила ID).
+    ARCHIVE_PHOTOS: List[str] = [
+        "https://your.cdn/guide_cover_01.jpg",
+        "https://your.cdn/guide_cover_02.jpg",
+        "https://your.cdn/guide_cover_03.jpg",
+    ]
+    ARCHIVE_CAPTION: str = "Гайды, чек-листы и шпаргалки. Обновляем регулярно."
 
 settings = Settings()
